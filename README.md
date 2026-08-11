@@ -8,10 +8,15 @@ nobody notices for a week because nothing was watching. This one retries with
 backoff, logs what happened, survives outages longer than its own retry budget,
 and comes back after a reboot.
 
+![bot demo](docs/demo.gif)
+
 ```bash
 pip install -r requirements.txt
 python -m bot.main --demo
 ```
+
+That recording is real output: two calls in five failed, three retries, zero
+messages lost, process never exited.
 
 **No token needed.** `--demo` runs against a deliberately unreliable fake API so
 you can watch the recovery behaviour on your own machine, right now.
