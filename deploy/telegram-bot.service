@@ -1,0 +1,56 @@
+; systemd unit — the difference between a bot that survives a reboot and one
+; that quietly stopped three weeks ago.
+;
+;   sudo cp deploy/telegram-bot.service /etc/systemd/system/
+;   sudo systemctl daemon-reload
+;   sudo systemctl enable --now telegram-bot
+;   journalctl -u telegram-bot -f
+
+[Unit]
+Description=Resilient Telegram bot
+Documentation=https://github.com/dngr2/resilient-telegram-bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=botuser
+Group=botuser
+WorkingDirectory=/opt/telegram-bot
+
+; Keep the token out of the unit file and out of your shell history.
+;   sudo install -m 600 -o botuser /dev/null /etc/telegram-bot.env
+;   echo 'BOT_TOKEN=123456:ABC...' | sudo tee /etc/telegram-bot.env
+EnvironmentFile=/etc/telegram-bot.env
+
+ExecStart=/opt/telegram-bot/.venv/bin/python -m bot.main --json-logs
+
+; Always restart, but rate-limit it: 5 starts in 60s and systemd gives up.
+; Without that, a bad token becomes an infinite crash loop hammering the API.
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+; SIGTERM lets the current message finish before the process exits.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=telegram-bot
+
+; It polls an HTTPS API and writes logs. It needs nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/telegram-bot
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target
